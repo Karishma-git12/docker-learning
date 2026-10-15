@@ -1,29 +1,26 @@
-# See https://aka.ms/customizecontainer to learn how to customize your debug container and how Visual Studio uses this Dockerfile to build your images for faster debugging.
 
-# This stage is used when running from VS in fast mode (Default for Debug configuration)
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
-USER app
+# base image
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 as base
 WORKDIR /app
 EXPOSE 8080
 
 
-# This stage is used to build the service project
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-ARG BUILD_CONFIGURATION=Release
+#step 1
+FROM mcr.microsoft.com/dotnet/sdk:8.0 as build
 WORKDIR /src
-COPY ["OurFirstDockerApp.csproj", "."]
+
+# retsore layer
+COPY "./OurFirstDockerApp.csproj" .
 RUN dotnet restore "./OurFirstDockerApp.csproj"
+
 COPY . .
-WORKDIR "/src/."
-RUN dotnet build "./OurFirstDockerApp.csproj" -c $BUILD_CONFIGURATION -o /app/build
+RUN dotnet publish "./OurFirstDockerApp.csproj" -c Release -o /app/publish --no restore
 
-# This stage is used to publish the service project to be copied to the final stage
-FROM build AS publish
-ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./OurFirstDockerApp.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+# restore + build + publish
 
-# This stage is used in production or when running from VS in regular mode (Default when not using the Debug configuration)
-FROM base AS final
+
+#step 2
+FROM base as final
 WORKDIR /app
-COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "OurFirstDockerApp.dll"]
+COPY --from=build /app/publish .
+ENTRYPOINT ["dotnet","OurFirstDockerApp.dll"]
